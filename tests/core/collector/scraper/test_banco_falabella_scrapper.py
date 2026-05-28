@@ -19,16 +19,14 @@ def mock_bank_falabella_data() -> dict:
 @mock.patch(
     "vigilant.core.collector.scraper.BancoFalabellaScraper._get_credit_transactions"
 )
-@mock.patch("vigilant.core.collector.scraper.BancoFalabellaScraper._save")
 def test_navigate(
-    _save: mock.MagicMock,
     _get_credit_transactions: mock.MagicMock,
     _login: mock.MagicMock,
     mock_page: mock.MagicMock,
 ) -> None:
-    BancoFalabellaScraper(mock_page).navigate()
+    scraper = BancoFalabellaScraper(mock_page)
+    scraper.navigate()
 
-    _save.assert_called_once()
     _login.assert_called_once()
     _get_credit_transactions.assert_called_once()
 
@@ -98,7 +96,7 @@ def test_get_credit_transactions(tmp_path: Path, mock_page: mock.MagicMock) -> N
 
 @mock.patch("vigilant.core.collector.scraper.banco_falabella.scraper.SpreadSheet")
 @mock.patch("vigilant.core.collector.scraper.banco_falabella.scraper.pd.read_excel")
-def test_save(
+def test_export(
     mock_pd_read_excel: mock.MagicMock,
     MockSpreadSheet: mock.MagicMock,
     tmp_path: Path,
@@ -139,9 +137,7 @@ def test_save(
     scraper = BancoFalabellaScraper(mock_page)
     scraper.data_path = Path("/")
 
-    scraper._save()
-
-    bank_output: dict = json.loads(Path(tmp_path / "bank_data.json").read_text())
+    account_data = scraper.export()
 
     mock_pd_read_excel.assert_called_once_with(
         Path("/", IOResources.TRANSACTIONS_FILENAME),
@@ -150,4 +146,4 @@ def test_save(
         names=mock_cols_keys,
         usecols=mock_cols_index,
     )
-    assert bank_output == mock_bank_falabella_data
+    assert account_data.model_dump() == mock_bank_falabella_data

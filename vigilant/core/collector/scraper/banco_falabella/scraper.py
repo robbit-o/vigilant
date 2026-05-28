@@ -8,7 +8,6 @@ from vigilant.common.models import AccountData, Transaction
 from vigilant.common.spreadsheet import SpreadSheet
 from vigilant.common.values import (
     finances_spreadsheet,
-    IOResources as VigilantIOResources,
 )
 from vigilant.core.collector.scraper.banco_falabella.values import (
     secrets,
@@ -24,7 +23,6 @@ class BancoFalabellaScraper(Scraper):
     def navigate(self) -> None:
         self._login()
         self._get_credit_transactions()
-        self._save()
 
     def _login(self) -> None:
         """Login to Web portal"""
@@ -69,9 +67,9 @@ class BancoFalabellaScraper(Scraper):
 
         download_info.value.save_as(self.data_path / IOResources.TRANSACTIONS_FILENAME)
 
-    def _save(self) -> None:
-        """Structure and saves collected data in a json file"""
-        self.logger.info("Saving data ...")
+    def export(self) -> AccountData:
+        """Structure and returns collected data"""
+        self.logger.info("Exporting data ...")
 
         TRANSACTIONS_COLUMNS_INDEX: tuple[str] = (0, 1, 4, 5)
         TRANSACTIONS_COLUMNS_KEYS: tuple[str] = (
@@ -102,10 +100,12 @@ class BancoFalabellaScraper(Scraper):
             (~transactions.description.isin(payment_descriptions))
             & (transactions.fees == 0)
         ].drop(columns=["fees"])
-        transactions.insert(loc=2, column="location", value="")
+        transactions.insert(loc=3, column="location", value="")
         transactions["date"] = transactions["date"].dt.strftime("%d/%m/%Y")
 
-        account_data = AccountData(
+        transactions = transactions.iloc[:, [0, 2, 1, 3]]
+
+        return AccountData(
             identifier=self.identifier,
             amount=0,
             transactions=[
@@ -114,8 +114,4 @@ class BancoFalabellaScraper(Scraper):
                 )
                 for raw_transaction in transactions.values.tolist()
             ],
-        )
-
-        (VigilantIOResources.OUTPUT_PATH / IOResources.OUTPUT_FILENAME).write_text(
-            account_data.model_dump_json()
         )

@@ -1,8 +1,5 @@
 from typing import Type
 
-from vigilant import logger
-from vigilant.common.browser import session
-from vigilant.common.storage import clear_resources
 from vigilant.core.collector.scraper import (
     BancoChileScraper,
     BancoFalabellaScraper,
@@ -17,24 +14,10 @@ SCRAPER_REGISTRY: dict[str, Type[Scraper]] = {
 }
 
 
-def get_enabled_scrapers() -> list[Type[Scraper]]:
+def get_enabled_scrapers() -> dict[str, Type[Scraper]]:
     enabled = collector.ENABLED_SCRAPERS
-    return [
-        SCRAPER_REGISTRY[name.strip()]
+    return {
+        name.strip(): SCRAPER_REGISTRY[name.strip()]
         for name in enabled
         if name.strip() in SCRAPER_REGISTRY
-    ]
-
-
-def collect() -> None:
-    """Collect accounts data"""
-    clear_resources()
-
-    logger.info("Collecting transactions data ...")
-    for SPR in get_enabled_scrapers():
-        with session() as page:
-            SPR(page).scrap()
-
-
-if __name__ == "__main__":
-    collect()
+    }

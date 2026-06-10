@@ -47,16 +47,16 @@ def test_account_report_transactions() -> None:
     )
 
     assert report.transactions == [
-        ["B", "02/01/2023", "compra2", "chile2", 200],
-        ["A", "01/01/2023", "compra", "chile", 100],
+        ["B", "02/01/2023", 200, "compra2", "chile2"],
+        ["A", "01/01/2023", 100, "compra", "chile"],
     ]
 
 
 def test_transactions_to_list() -> None:
-    transaction_list: list[str, int] = ["01/01/0001", "compra", "chile", 100]
+    transaction_list: list[str, int] = ["01/01/0001", 100, "compra", "chile"]
 
     transaction = Transaction(
-        **dict(zip(["date", "description", "location", "amount"], transaction_list))
+        **dict(zip(["date", "amount", "description", "location"], transaction_list))
     )
 
     assert transaction.to_list() == transaction_list

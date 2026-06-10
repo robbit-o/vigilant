@@ -1,6 +1,4 @@
-from pathlib import Path
 from typing import Type
-from unittest import mock
 
 import pytest
 
@@ -16,22 +14,16 @@ def mock_scraper() -> Type[Scraper]:
     return MockScraper
 
 
-@mock.patch("vigilant.core.collector.main.session")
-@mock.patch("vigilant.core.collector.main.clear_resources")
-def test_collect(
-    driver_session: mock.MagicMock,
-    clear_resources: mock.MagicMock,
-    tmp_path: Path,
+def test_get_enabled_scrapers(
     monkeypatch: pytest.MonkeyPatch,
     mock_scraper: Type[Scraper],
 ) -> None:
-    monkeypatch.setattr("vigilant.common.values.IOResources.DATA_PATH", tmp_path)
     monkeypatch.setattr(
         "vigilant.common.values.collector.ENABLED_SCRAPERS", ["MockScraper"]
     )
 
     collector.SCRAPER_REGISTRY = {"MockScraper": mock_scraper}
-    collector.collect()
 
-    driver_session.assert_called_once()
-    clear_resources.assert_called_once()
+    enabled_scrapers = collector.get_enabled_scrapers()
+
+    assert enabled_scrapers == {"MockScraper": mock_scraper}

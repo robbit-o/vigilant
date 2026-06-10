@@ -23,7 +23,7 @@ class Collector(BaseSettings):
     ENABLED_SCRAPERS: list[str] = ["BancoChile", "BancoFalabella"]
 
 
-class BalanceSpreadsheet(BaseSettings):
+class FinancesSpreadsheet(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
@@ -33,16 +33,14 @@ class BalanceSpreadsheet(BaseSettings):
     DATA_WORKSHEET_NAME: str = "Data"
     PAYMENT_DESC_RANGE: str = "B3:B12"
 
-    EXPENSES_WORKSHEET_NAME: str = "Gastos"
+    FINANCES_WORKSHEET_NAME: str = "Gastos"
     AMOUNT_CELL: str = "J2"
-    EXPENSES_CELL: str = "B3"
-
-    TRANSACTIONS_AMOUNT_RANGE: str = "F3:F200"
+    TRANSACTIONS_CELL: str = "B3"
 
 
 settings = Settings()
 collector = Collector()
-balance_spreadsheet = BalanceSpreadsheet()
+finances_spreadsheet = FinancesSpreadsheet()
 
 
 class IOResources:

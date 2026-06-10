@@ -53,27 +53,4 @@ class SpreadSheet:
         """
         worksheet: gspread.Worksheet = self._spreadsheet.worksheet(worksheet_title)
 
-        worksheet.update(data, range)
-
-    def format_currency(self, worksheet_title: str, range: str) -> None:
-        """Formats a range of cells as CLP currency
-
-        Args:
-            worksheet_title (str): Title of the worksheet
-            range (str): Location from where to read the data
-        """
-        worksheet: gspread.Worksheet = self._spreadsheet.worksheet(worksheet_title)
-
-        worksheet.batch_format(
-            [
-                {
-                    "range": range,
-                    "format": {
-                        "numberFormat": {
-                            "type": "NUMBER",
-                            "pattern": '_ "$"* #,##0_ ;_ "$"* \-#,##0_ ;_ "$"* "-"_ ;_ @_ ',
-                        },
-                    },
-                }
-            ]
-        )
+        worksheet.update(data, range, value_input_option="USER_ENTERED")

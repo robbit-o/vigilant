@@ -7,7 +7,7 @@ from playwright.sync_api import TimeoutError
 from vigilant.common.models import AccountData, Transaction
 from vigilant.common.spreadsheet import SpreadSheet
 from vigilant.common.values import (
-    balance_spreadsheet,
+    finances_spreadsheet,
     IOResources as VigilantIOResources,
 )
 from vigilant.core.collector.scraper.banco_chile.values import (
@@ -84,40 +84,40 @@ class BancoChileScraper(Scraper):
         transactions_file = self.data_path / IOResources.TRANSACTIONS_FILENAME
         collected_transactions: list[Transaction] = []
         if transactions_file.exists():
-            EXPENSES_COLUMNS_INDEX: tuple[str] = (1, 4, 6, 10)
-            EXPENSES_COLUMNS_KEYS: tuple[str] = (
+            TRANSACTIONS_COLUMNS_INDEX: tuple[str] = (1, 4, 6, 10)
+            TRANSACTIONS_COLUMNS_KEYS: tuple[str] = (
                 "date",
                 "description",
                 "location",
                 "amount",
             )
 
-            expenses: pd.DataFrame = pd.read_excel(
+            transactions: pd.DataFrame = pd.read_excel(
                 transactions_file,
                 sheet_name=0,
                 header=17,
-                names=EXPENSES_COLUMNS_KEYS,
-                usecols=EXPENSES_COLUMNS_INDEX,
+                names=TRANSACTIONS_COLUMNS_KEYS,
+                usecols=TRANSACTIONS_COLUMNS_INDEX,
             )
 
-            spreadsheet = SpreadSheet.load(balance_spreadsheet.KEY)
+            spreadsheet = SpreadSheet.load(finances_spreadsheet.KEY)
             payment_descriptions: list[str] = [
                 desc.pop()
                 for desc in spreadsheet.read(
-                    balance_spreadsheet.DATA_WORKSHEET_NAME,
-                    balance_spreadsheet.PAYMENT_DESC_RANGE,
+                    finances_spreadsheet.DATA_WORKSHEET_NAME,
+                    finances_spreadsheet.PAYMENT_DESC_RANGE,
                 )
             ]
 
-            expenses = expenses[
-                (~expenses.description.isin(payment_descriptions))
+            transactions = transactions[
+                (~transactions.description.isin(payment_descriptions))
             ].fillna("")
 
             collected_transactions = [
                 Transaction(
                     **dict(zip(list(Transaction.model_fields), raw_transaction))
                 )
-                for raw_transaction in expenses.values.tolist()
+                for raw_transaction in transactions.values.tolist()
             ]
 
         account_data = AccountData(

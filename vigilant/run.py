@@ -1,12 +1,12 @@
 from vigilant import logger
-from vigilant.core import collector, update_spreadsheet
+from vigilant.core import collector, upload
 
 
 def main():
-    """Process for collecting expenses data and load it into a google
+    """Process for collecting finances data and load it into a google
     spreadsheet
     """
     collector.collect()
-    update_spreadsheet.main()
+    upload.main()
 
     logger.info("Operation completed successfully")

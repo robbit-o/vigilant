@@ -7,9 +7,8 @@ from playwright.sync_api import Locator, TimeoutError
 from vigilant.common.models import AccountData, Transaction
 from vigilant.common.spreadsheet import SpreadSheet
 from vigilant.common.values import (
-    balance_spreadsheet,
+    finances_spreadsheet,
     IOResources as VigilantIOResources,
-    settings,
 )
 from vigilant.core.collector.scraper.banco_falabella.values import (
     secrets,
@@ -32,26 +31,24 @@ class BancoFalabellaScraper(Scraper):
         self.logger.info("Logging in ...")
 
         self.page.goto(secrets.LOGIN_URL)
-        self.page.wait_for_load_state("networkidle")
 
         login_btn: Locator = self.page.locator(Locators.LOGIN_FORM_BTN_XPATH)
-        login_btn.wait_for(state="visible", timeout=settings.BROWSER_WAIT_TIMEOUT)
+        login_btn.wait_for(state="visible")
         login_btn.click(delay=500.0)
 
         user_input: Locator = self.page.locator(Locators.USER_INPUT_XPATH).first
-        user_input.wait_for(state="visible", timeout=settings.BROWSER_WAIT_TIMEOUT)
+        user_input.wait_for(state="visible")
         user_input.fill(secrets.USERNAME)
 
         password_input: Locator = self.page.locator(Locators.PASSWORD_INPUT_XPATH).first
-        password_input.wait_for(state="visible", timeout=settings.BROWSER_WAIT_TIMEOUT)
+        password_input.wait_for(state="visible")
         password_input.fill(secrets.PASSWORD)
 
         submit_btn = self.page.locator(Locators.LOGIN_SUBMIT_BTN_ID).first
-        submit_btn.wait_for(state="visible", timeout=settings.BROWSER_WAIT_TIMEOUT)
+        submit_btn.wait_for(state="visible")
         submit_btn.click(delay=500.0)
 
-        self.page.wait_for_url(secrets.HOME_URL, timeout=settings.BROWSER_WAIT_TIMEOUT)
-        self.page.wait_for_load_state("networkidle")
+        self.page.wait_for_url(secrets.HOME_URL)
 
     def _get_credit_transactions(self) -> None:
         """Collect current transactions on credit card"""
@@ -76,36 +73,37 @@ class BancoFalabellaScraper(Scraper):
         """Structure and saves collected data in a json file"""
         self.logger.info("Saving data ...")
 
-        EXPENSES_COLUMNS_INDEX: tuple[str] = (0, 1, 4, 5)
-        EXPENSES_COLUMNS_KEYS: tuple[str] = (
+        TRANSACTIONS_COLUMNS_INDEX: tuple[str] = (0, 1, 4, 5)
+        TRANSACTIONS_COLUMNS_KEYS: tuple[str] = (
             "date",
             "description",
             "fees",
             "amount",
         )
 
-        expenses: pd.DataFrame = pd.read_excel(
+        transactions: pd.DataFrame = pd.read_excel(
             self.data_path / IOResources.TRANSACTIONS_FILENAME,
             sheet_name=0,
             header=0,
-            names=EXPENSES_COLUMNS_KEYS,
-            usecols=EXPENSES_COLUMNS_INDEX,
+            names=TRANSACTIONS_COLUMNS_KEYS,
+            usecols=TRANSACTIONS_COLUMNS_INDEX,
         )
 
-        spreadsheet = SpreadSheet.load(balance_spreadsheet.KEY)
+        spreadsheet = SpreadSheet.load(finances_spreadsheet.KEY)
         payment_descriptions: list[str] = [
             desc.pop()
             for desc in spreadsheet.read(
-                balance_spreadsheet.DATA_WORKSHEET_NAME,
-                balance_spreadsheet.PAYMENT_DESC_RANGE,
+                finances_spreadsheet.DATA_WORKSHEET_NAME,
+                finances_spreadsheet.PAYMENT_DESC_RANGE,
             )
         ]
 
-        expenses = expenses[
-            (~expenses.description.isin(payment_descriptions)) & (expenses.fees == 0)
+        transactions = transactions[
+            (~transactions.description.isin(payment_descriptions))
+            & (transactions.fees == 0)
         ].drop(columns=["fees"])
-        expenses.insert(loc=2, column="location", value="")
-        expenses["date"] = expenses["date"].dt.strftime("%d/%m/%Y")
+        transactions.insert(loc=2, column="location", value="")
+        transactions["date"] = transactions["date"].dt.strftime("%d/%m/%Y")
 
         account_data = AccountData(
             identifier=self.identifier,
@@ -114,7 +112,7 @@ class BancoFalabellaScraper(Scraper):
                 Transaction(
                     **dict(zip(list(Transaction.model_fields), raw_transaction))
                 )
-                for raw_transaction in expenses.values.tolist()
+                for raw_transaction in transactions.values.tolist()
             ],
         )
 

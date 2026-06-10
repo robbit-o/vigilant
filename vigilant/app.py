@@ -7,9 +7,9 @@ from vigilant.run import main as run
 app = FastAPI()
 
 
-@app.post("/update-expenses")
-def update_expenses() -> str:
-    """Start process for collecting expenses data and load it into a google
+@app.post("/sync-finances")
+def sync_finances() -> str:
+    """Start process for collecting finance data and load it into a google
     spreadsheet
 
     Returns:

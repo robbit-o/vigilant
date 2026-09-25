@@ -6,7 +6,11 @@ from unittest import mock
 import pandas as pd
 import pytest
 
-from vigilant.core.collector.scraper.banco_falabella.values import Locators, IOResources
+from vigilant.core.collector.scraper.banco_falabella.values import (
+    secrets,
+    Locators,
+    IOResources,
+)
 from vigilant.core.collector.scraper import BancoFalabellaScraper
 
 
@@ -32,7 +36,7 @@ def test_navigate(
 
 
 def test_login(mock_page: mock.MagicMock) -> None:
-    mock_login_btn, mock_user_input, mock_password_input, mock_generic_locator = (
+    mock_login_btn, mock_user_input, mock_password_input, mock_submit_btn = (
         mock.MagicMock(),
         mock.MagicMock(),
         mock.MagicMock(),
@@ -43,37 +47,31 @@ def test_login(mock_page: mock.MagicMock) -> None:
         match mock_selector:
             case Locators.LOGIN_FORM_BTN_XPATH:
                 return mock_login_btn
-            case Locators.USER_INPUT_XPATH:
-                mock_locator = mock.MagicMock()
-                mock_locator.first = mock_user_input
-                return mock_locator
-            case Locators.PASSWORD_INPUT_XPATH:
-                mock_locator = mock.MagicMock()
-                mock_locator.first = mock_password_input
-                return mock_locator
-            case Locators.PASSWORD_INPUT_XPATH:
+            case Locators.USER_INPUT_ID:
+                return mock_user_input
+            case Locators.PASSWORD_INPUT_ID:
                 return mock_password_input
-            case _:
-                return mock_generic_locator
+            case Locators.LOGIN_SUBMIT_BTN_XPATH:
+                return mock_submit_btn
 
     mock_page.locator = mock.MagicMock(side_effect=mock_login_form_locators)
 
     BancoFalabellaScraper(mock_page)._login()
 
-    mock_page.goto.assert_called_once()
-    mock_page.wait_for_load_state()
+    mock_page.goto.assert_called_once_with(secrets.LOGIN_URL)
+    mock_page.wait_for_url.assert_called_once_with(secrets.HOME_URL)
 
     mock_login_btn.wait_for.assert_called_once()
     mock_login_btn.click.assert_called_once()
 
     mock_user_input.wait_for.assert_called_once()
-    mock_user_input.fill.assert_called_once()
+    mock_user_input.fill.assert_called_once_with(secrets.USERNAME)
 
     mock_password_input.wait_for.assert_called_once()
-    mock_password_input.fill.assert_called_once()
+    mock_password_input.fill.assert_called_once_with(secrets.PASSWORD)
 
-    mock_generic_locator.first.click.assert_called_once()
-    mock_page.wait_for_url.assert_called_once()
+    mock_submit_btn.wait_for.assert_called_once()
+    mock_submit_btn.click.assert_called_once()
 
 
 def test_get_credit_transactions(tmp_path: Path, mock_page: mock.MagicMock) -> None:

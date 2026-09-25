@@ -22,20 +22,19 @@ secrets = Secrets()
 
 
 class Locators:
-    LOGIN_SUBMIT_BTN_ID: Final[str] = "#desktop-login"
+    USER_INPUT_ID: Final[str] = "#document"
+    PASSWORD_INPUT_ID: Final[str] = "#pass"
+    PRODUCT_BTN_ID: Final[str] = "#cardDetail0"
 
     PRODUCT_BTN_CLASS: Final[str] = ".div-product"
     DOWNLOAD_BTN_CLASS: Final[str] = ".btn-doc-export"
     CLOSE_BANNER_BTN_CLASS: Final[str] = ".close-button"
 
     LOGIN_FORM_BTN_XPATH: Final[str] = (
-        '//*[@id="main-header__sub-content"]/div[3]/button[3]'
+        '//*[@id="main-header"]/nav[2]/div/div/div[2]/button'
     )
-    USER_INPUT_XPATH: Final[str] = (
-        '//*[@id="auth-form"]/div[2]/div/div[2]/div[1]/div/input'
-    )
-    PASSWORD_INPUT_XPATH: Final[str] = (
-        '//*[@id="auth-form"]/div[2]/div/div[2]/div[2]/div/input'
+    LOGIN_SUBMIT_BTN_XPATH: Final[str] = (
+        '//*[@id="drawer"]/div[2]/div/div/div[1]/form/div[2]/button'
     )
     PROMOTION_BANNER_XPATH: Final[str] = '//*[@id="shadow-container"]'
 

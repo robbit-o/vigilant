@@ -34,15 +34,15 @@ class BancoFalabellaScraper(Scraper):
         login_btn.wait_for(state="visible")
         login_btn.click(delay=500.0)
 
-        user_input: Locator = self.page.locator(Locators.USER_INPUT_XPATH).first
+        user_input: Locator = self.page.locator(Locators.USER_INPUT_ID)
         user_input.wait_for(state="visible")
         user_input.fill(secrets.USERNAME)
 
-        password_input: Locator = self.page.locator(Locators.PASSWORD_INPUT_XPATH).first
+        password_input: Locator = self.page.locator(Locators.PASSWORD_INPUT_ID)
         password_input.wait_for(state="visible")
         password_input.fill(secrets.PASSWORD)
 
-        submit_btn = self.page.locator(Locators.LOGIN_SUBMIT_BTN_ID).first
+        submit_btn = self.page.locator(Locators.LOGIN_SUBMIT_BTN_XPATH)
         submit_btn.wait_for(state="visible")
         submit_btn.click(delay=500.0)
 
@@ -60,7 +60,7 @@ class BancoFalabellaScraper(Scraper):
             )
             self.page.locator(Locators.CLOSE_BANNER_BTN_CLASS).click()
 
-        self.page.locator(Locators.PRODUCT_BTN_CLASS).click()
+        self.page.locator(Locators.PRODUCT_BTN_ID).click()
 
         with self.page.expect_download() as download_info:
             self.page.locator(Locators.DOWNLOAD_BTN_CLASS).first.click()

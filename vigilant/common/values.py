@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     LOG_LEVEL: str = "INFO"
     BROWSER_WAIT_TIMEOUT: float = 30000.0
+    BROWSER_RECORD_VIDEO: bool = False
     STORAGE_LOCATION: str = "local"
     BUCKET_NAME: Optional[str] = None
 

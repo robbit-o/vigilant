@@ -5,6 +5,7 @@ import pytest
 
 from vigilant.common import browser, options
 from vigilant.common.exceptions import DriverException
+from vigilant.common.scripts import MOUSE_POINTER_SCRIPT
 from vigilant.common.values import settings
 
 
@@ -24,6 +25,13 @@ def mock_playwright() -> mock.MagicMock:
             mock_playwright_session
         )
         yield mock_playwright_session
+
+
+@pytest.fixture
+def mock_video() -> mock.MagicMock:
+    video = mock.MagicMock()
+    video.path.return_value = "/tmp/videos/recorded.webm"
+    return video
 
 
 def test_session(mock_playwright: mock.MagicMock, mock_page: mock.MagicMock) -> None:
@@ -144,3 +152,87 @@ def test_take_screenshot(
     image: bytes = screenshot_path.read_bytes()
 
     assert screenshot_path.exists() and image == image_data
+
+
+@mock.patch("vigilant.common.browser.storage")
+def test_session_record_video(
+    mock_storage: mock.MagicMock,
+    mock_playwright: mock.MagicMock,
+    mock_page: mock.MagicMock,
+    mock_video: mock.MagicMock,
+) -> None:
+    mock_browser = mock_playwright.chromium.launch.return_value
+    mock_browser.new_context.return_value.new_page.return_value = mock_page
+    mock_page.video = mock_video
+
+    options.configure(options.build_browser_options(record_video=True))
+
+    with browser.session() as session:
+        assert session == mock_page
+
+        context_options: dict = mock_browser.new_context.call_args.kwargs
+        record_video_dir: str = context_options["record_video_dir"]
+        assert Path(record_video_dir).is_dir()
+
+    assert context_options["record_video_size"] == {"width": 1920, "height": 1080}
+    assert not Path(record_video_dir).exists()
+    mock_page.add_init_script.assert_called_once_with(MOUSE_POINTER_SCRIPT)
+    mock_browser.new_context.return_value.close.assert_called_once()
+    mock_video.path.assert_called_once()
+    mock_storage.save_video.assert_called_once()
+    assert mock_storage.save_video.call_args.args[0] == "/tmp/videos/recorded.webm"
+    assert mock_storage.save_video.call_args.args[1].startswith("screenshots/browser-")
+    assert mock_storage.save_video.call_args.args[1].endswith(".webm")
+
+
+@mock.patch("vigilant.common.browser.storage")
+def test_session_record_video_exception(
+    mock_storage: mock.MagicMock,
+    mock_playwright: mock.MagicMock,
+    mock_page: mock.MagicMock,
+    mock_video: mock.MagicMock,
+) -> None:
+    mock_browser = mock_playwright.chromium.launch.return_value
+    mock_browser.new_context.return_value.new_page.return_value = mock_page
+    mock_page.video = mock_video
+
+    options.configure(options.build_browser_options(record_video=True))
+
+    with mock.patch("vigilant.common.browser._take_screenshot", return_value="sc.png"):
+        with pytest.raises(DriverException):
+            with browser.session() as _:
+                raise Exception
+
+    mock_storage.save_video.assert_called_once()
+    assert mock_storage.save_image.call_count == 0
+    mock_browser.new_context.return_value.close.assert_called_once()
+
+
+@mock.patch("vigilant.common.browser.storage")
+def test_session_without_record_video(
+    mock_storage: mock.MagicMock,
+    mock_playwright: mock.MagicMock,
+    mock_page: mock.MagicMock,
+) -> None:
+    mock_browser = mock_playwright.chromium.launch.return_value
+    mock_browser.new_context.return_value.new_page.return_value = mock_page
+    mock_page.video = None
+
+    with browser.session() as session:
+        assert session == mock_page
+
+    assert "record_video_dir" not in mock_browser.new_context.call_args.kwargs
+    assert "record_video_size" not in mock_browser.new_context.call_args.kwargs
+    mock_page.add_init_script.assert_not_called()
+    mock_storage.save_video.assert_not_called()
+    mock_browser.new_context.return_value.close.assert_called_once()
+
+
+@mock.patch("vigilant.common.browser.storage")
+def test_save_video(mock_storage: mock.MagicMock, mock_video: mock.MagicMock) -> None:
+    saved_path: str = browser._save_video(mock_video)
+
+    assert saved_path.startswith("screenshots/browser-") and saved_path.endswith(
+        ".webm"
+    )
+    assert mock_storage.save_video.call_args.args[0] == "/tmp/videos/recorded.webm"

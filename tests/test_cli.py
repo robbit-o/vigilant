@@ -7,7 +7,7 @@ from typer.testing import CliRunner
 
 from vigilant import cli
 from vigilant.common import options
-from vigilant.common.values import collector
+from vigilant.common.values import collector, settings
 from vigilant.core.collector.main import SCRAPER_REGISTRY
 
 runner: CliRunner = CliRunner()
@@ -105,6 +105,37 @@ def test_main_unknown_scraper(mock_run_main: mock.MagicMock) -> None:
     )
     assert collector.ENABLED_SCRAPERS == ["BancoChile", "BancoFalabella"]
     mock_run_main.assert_not_called()
+
+
+@mock.patch("vigilant.cli.run.main")
+def test_main_record_video(mock_run_main: mock.MagicMock) -> None:
+    result = runner.invoke(cli.app, ["--record-video"])
+
+    assert result.exit_code == 0
+    assert options.current.record_video is True
+    mock_run_main.assert_called_once_with()
+
+
+@mock.patch("vigilant.cli.run.main")
+def test_main_no_record_video_overrides_env(
+    mock_run_main: mock.MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "BROWSER_RECORD_VIDEO", True)
+
+    result = runner.invoke(cli.app, ["--no-record-video"])
+
+    assert result.exit_code == 0
+    assert options.current.record_video is False
+    mock_run_main.assert_called_once_with()
+
+
+@mock.patch("vigilant.cli.run.main")
+def test_main_record_video_from_env(mock_run_main: mock.MagicMock) -> None:
+    result = runner.invoke(cli.app)
+
+    assert result.exit_code == 0
+    assert options.current.record_video is False
+    mock_run_main.assert_called_once_with()
 
 
 def test_main_help() -> None:

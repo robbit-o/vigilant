@@ -1,6 +1,7 @@
 import pytest
 
 from vigilant.common import options
+from vigilant.common.values import settings
 
 
 @pytest.fixture(autouse=True)
@@ -50,3 +51,29 @@ def test_configure() -> None:
     options.configure(browser_options)
 
     assert options.current == browser_options
+
+
+@pytest.mark.parametrize(
+    ("record_video", "expected"), [(None, False), (True, True), (False, False)]
+)
+def test_build_browser_options_record_video(
+    record_video: bool | None, expected: bool
+) -> None:
+    assert (
+        options.build_browser_options(record_video=record_video).record_video
+        is expected
+    )
+
+
+def test_build_browser_options_record_video_from_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "BROWSER_RECORD_VIDEO", True)
+
+    assert options.build_browser_options().record_video is True
+    assert options.build_browser_options(record_video=True).record_video is True
+    assert options.build_browser_options(record_video=False).record_video is False
+
+
+def test_browser_options_record_video_default_from_env() -> None:
+    assert options.BrowserOptions().record_video is settings.BROWSER_RECORD_VIDEO

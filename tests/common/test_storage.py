@@ -26,6 +26,31 @@ def test_local_storage() -> None:
     )
 
 
+def test_local_storage_video(tmp_path: Path) -> None:
+    video_data: bytes = b"webm_data"
+    recorded_path: Path = tmp_path / "recorded.webm"
+    recorded_path.write_bytes(video_data)
+
+    video_path: Path = tmp_path / "screenshots" / "browser-20250101000000.webm"
+    saved_path: str = LocalStorage().save_video(str(recorded_path), str(video_path))
+
+    assert (
+        saved_path == video_path.as_posix()
+        and not recorded_path.exists()
+        and video_path.read_bytes() == video_data
+    )
+
+
+def test_local_storage_video_without_parent(tmp_path: Path) -> None:
+    recorded_path: Path = tmp_path / "recorded.webm"
+    recorded_path.write_bytes(b"webm_data")
+
+    video_path: Path = tmp_path / "browser.webm"
+    LocalStorage().save_video(str(recorded_path), str(video_path))
+
+    assert video_path.read_bytes() == b"webm_data"
+
+
 class TestGoogleCloudStorage:
     @mock.patch("vigilant.common.storage.storage")
     def test_gcs_storage(
@@ -66,6 +91,31 @@ class TestGoogleCloudStorage:
         object_uri: str = GoogleCloudStorage._build_object_uri(file_path)
 
         assert f"{bucket_name}/{file_path}" in object_uri
+
+    @mock.patch("vigilant.common.storage.storage")
+    def test_gcs_storage_video(
+        self, gcs_storage: mock.MagicMock, tmp_path: Path
+    ) -> None:
+        recorded_path: Path = tmp_path / "recorded.webm"
+        recorded_path.write_bytes(b"webm_data")
+
+        mock_bucket = mock.MagicMock()
+        mock_gcs_client = gcs_storage.Client.return_value
+        mock_gcs_client.bucket.return_value = mock_bucket
+
+        storage = GoogleCloudStorage()
+        saved_path: str = storage.save_video(
+            str(recorded_path), "screenshots/browser-20250101000000.webm"
+        )
+
+        mock_bucket.blob.assert_called_once_with(
+            "screenshots/browser-20250101000000.webm"
+        )
+        mock_bucket.blob.return_value.upload_from_filename.assert_called_once_with(
+            str(recorded_path), content_type="video/webm"
+        )
+        assert "screenshots/browser-20250101000000.webm" in saved_path
+        assert recorded_path.exists()
 
 
 def test_clear_resources(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

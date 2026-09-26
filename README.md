@@ -39,12 +39,19 @@ poetry run vigilant
 | `-w`, `--width` | Browser window width in pixels, the height is derived from the 16:9 ratio when omitted |
 | `-h`, `--height` | Browser window height in pixels, the width is derived from the 16:9 ratio when omitted |
 | `-s`, `--scrapers` | Enabled scrapers, overrides the `ENABLED_SCRAPERS` environment variable |
+| `--record-video` / `--no-record-video` | Records the browser session, overrides the `BROWSER_RECORD_VIDEO` environment variable |
 
 Enabled scrapers are repeated or comma separated options:
 
 ```shell
 poetry run vigilant -s BancoChile -s BancoFalabella
 poetry run vigilant -s BancoChile,BancoFalabella --show-window -w 1280
+```
+
+Recordings are saved next to the screenshots, in the same storage location:
+
+```shell
+poetry run vigilant -s BancoChile --record-video
 ```
 
 ## Start service locally

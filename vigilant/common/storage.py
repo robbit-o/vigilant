@@ -8,11 +8,15 @@ from google.cloud import storage
 from vigilant.common.values import settings, IOResources
 
 DEFAULT_PATH: Final[str] = "."
+VIDEO_CONTENT_TYPE: Final[str] = "video/webm"
 
 
 class Storage(ABC):
     @abstractmethod
     def save_image(self, data: bytes, path: str) -> str: ...
+
+    @abstractmethod
+    def save_video(self, source: str, path: str) -> str: ...
 
 
 class LocalStorage(Storage):
@@ -32,6 +36,22 @@ class LocalStorage(Storage):
         image_path.write_bytes(data)
         return image_path.as_posix()
 
+    def save_video(self, source: str, path: str = DEFAULT_PATH) -> str:
+        """Move video file into the local file system
+
+        Args:
+            source (str): Path of the recorded video file
+            path (str, optional): Path where to save the video. Defaults to DEFAULT_PATH.
+
+        Returns:
+            str: Path where the video was saved
+        """
+        video_path = Path(path)
+        video_path.parents[0].mkdir(parents=True, exist_ok=True)
+
+        shutil.move(source, video_path)
+        return video_path.as_posix()
+
 
 class GoogleCloudStorage(Storage):
     def __init__(self):
@@ -50,6 +70,21 @@ class GoogleCloudStorage(Storage):
         """
         blob: storage.Blob = self.bucket.blob(path)
         blob.upload_from_string(data, content_type="image/png")
+
+        return self._build_object_uri(path)
+
+    def save_video(self, source: str, path: str = "") -> str:
+        """Upload video file to GCS bucket
+
+        Args:
+            source (str): Path of the recorded video file
+            path (str, optional): Path where to save the video. Defaults to "".
+
+        Returns:
+            str: URI of the video as GCS object
+        """
+        blob: storage.Blob = self.bucket.blob(path)
+        blob.upload_from_filename(source, content_type=VIDEO_CONTENT_TYPE)
 
         return self._build_object_uri(path)
 

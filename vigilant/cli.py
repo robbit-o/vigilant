@@ -32,12 +32,19 @@ def main(
         "--scrapers",
         help="Enabled scrapers, e.g: -s BancoChile -s BancoFalabella",
     ),
+    record_video: Optional[bool] = typer.Option(
+        None,
+        "--record-video/--no-record-video",
+        help="Record the browser session, overrides the environment configuration",
+    ),
 ) -> None:
     """Process for collecting finances data and load it into a google
     spreadsheet
     """
     _set_enabled_scrapers(scrapers)
-    options.configure(options.build_browser_options(show_window, width, height))
+    options.configure(
+        options.build_browser_options(show_window, width, height, record_video)
+    )
 
     run.main()
 

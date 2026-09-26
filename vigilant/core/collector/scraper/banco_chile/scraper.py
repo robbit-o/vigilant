@@ -2,12 +2,14 @@ from contextlib import suppress
 from typing import Final
 
 import pandas as pd
-from playwright.sync_api import TimeoutError
+from playwright.sync_api import Locator, TimeoutError
 
+from vigilant.common.browser import click_like_human, fill_like_human
 from vigilant.common.models import AccountData, Transaction
 from vigilant.common.spreadsheet import SpreadSheet
 from vigilant.common.values import (
     finances_spreadsheet,
+    settings,
 )
 from vigilant.core.collector.scraper.banco_chile.values import (
     secrets,
@@ -31,12 +33,17 @@ class BancoChileScraper(Scraper):
         self.logger.info("Logging in ...")
 
         self.page.goto(secrets.LOGIN_URL)
+        self.page.locator(Locators.USER_INPUT_ID).wait_for(
+            state="visible", timeout=settings.BROWSER_WAIT_TIMEOUT
+        )
 
-        self.page.locator(Locators.USER_INPUT_ID).fill(secrets.USERNAME)
-        self.page.locator(Locators.PASSWORD_INPUT_ID).fill(secrets.PASSWORD)
-        self.page.locator(Locators.LOGIN_BTN_ID).click()
+        fill_like_human(
+            self.page, Locators.USER_INPUT_ID, secrets.USERNAME, numeric_only=True
+        )
+        fill_like_human(self.page, Locators.PASSWORD_INPUT_ID, secrets.PASSWORD)
+        click_like_human(self.page, Locators.LOGIN_BTN_ID)
 
-        self.page.wait_for_url(secrets.HOME_URL)
+        self._wait_for_login(secrets.HOME_URL, error_text=Locators.LOGIN_ERROR_TEXT)
 
     def _get_current_amount(self) -> None:
         """Collect current account amount and save it in a file"""
@@ -64,11 +71,22 @@ class BancoChileScraper(Scraper):
 
         self.page.goto(secrets.CREDIT_TRANSACTIONS_URL)
 
-        try:
-            self.page.locator(Locators.DOWNLOAD_GROUP_BTN_XPATH).click()
-        except TimeoutError:
-            self.page.locator(Locators.NO_TRANSACTIONS_CLASS).wait_for(state="visible")
+        download_group_btn: Locator = self.page.locator(
+            Locators.DOWNLOAD_GROUP_BTN_XPATH
+        )
+        no_transactions: Locator = self.page.locator(Locators.NO_TRANSACTIONS_CLASS)
+
+        # Either the movements table or the empty state shows up, so waiting for
+        # both in turn would idle through a timeout before noticing the second
+        no_transactions.or_(download_group_btn).first.wait_for(
+            state="visible", timeout=settings.BROWSER_WAIT_TIMEOUT
+        )
+
+        if not download_group_btn.first.is_visible():
+            self.logger.info("No transactions to download")
             return
+
+        download_group_btn.click()
 
         with self.page.expect_download() as download_info:
             self.page.locator(Locators.DOWNLOAD_BTN_XPATH).click()

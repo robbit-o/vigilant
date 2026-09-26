@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     BROWSER_WAIT_TIMEOUT: float = 30000.0
     BROWSER_RECORD_VIDEO: bool = False
+    # Targets fingerprint the browser engine. `chromium` is the full browser
+    # build, while the default headless mode runs `chromium_headless_shell`,
+    # which exposes an empty plugin list and no `window.chrome` object.
+    BROWSER_CHANNEL: str = "chromium"
+    BROWSER_LOCALE: str = "es-CL"
+    BROWSER_TIMEZONE: str = "America/Santiago"
     STORAGE_LOCATION: str = "local"
     BUCKET_NAME: Optional[str] = None
 

@@ -4,17 +4,24 @@ from typing import Final
 import pandas as pd
 from playwright.sync_api import Locator, TimeoutError
 
+from vigilant.common.browser import click_like_human, fill_like_human
 from vigilant.common.models import AccountData, Transaction
 from vigilant.common.spreadsheet import SpreadSheet
 from vigilant.common.values import (
     finances_spreadsheet,
+    settings,
 )
 from vigilant.core.collector.scraper.banco_falabella.values import (
     secrets,
     Locators,
+    BLOCKED_TEXT_FRAGMENTS,
     IOResources,
 )
 from vigilant.core.collector.scraper import Scraper
+
+# The form expects the pointer to stay pressed on the buttons, as the previous
+# `click(delay=500)` calls did
+BUTTON_HOLD_MS: Final[float] = 500.0
 
 
 class BancoFalabellaScraper(Scraper):
@@ -30,23 +37,32 @@ class BancoFalabellaScraper(Scraper):
 
         self.page.goto(secrets.LOGIN_URL)
 
-        login_btn: Locator = self.page.locator(Locators.LOGIN_FORM_BTN_XPATH)
-        login_btn.wait_for(state="visible")
-        login_btn.click(delay=500.0)
+        self.page.locator(Locators.LOGIN_FORM_BTN_XPATH).wait_for(
+            state="visible", timeout=settings.BROWSER_WAIT_TIMEOUT
+        )
+        click_like_human(self.page, Locators.LOGIN_FORM_BTN_XPATH, hold=BUTTON_HOLD_MS)
 
-        user_input: Locator = self.page.locator(Locators.USER_INPUT_ID)
-        user_input.wait_for(state="visible")
-        user_input.fill(secrets.USERNAME)
+        self.page.locator(Locators.USER_INPUT_ID).wait_for(
+            state="visible", timeout=settings.BROWSER_WAIT_TIMEOUT
+        )
 
-        password_input: Locator = self.page.locator(Locators.PASSWORD_INPUT_ID)
-        password_input.wait_for(state="visible")
-        password_input.fill(secrets.PASSWORD)
+        fill_like_human(
+            self.page, Locators.USER_INPUT_ID, secrets.USERNAME, numeric_only=True
+        )
+        fill_like_human(self.page, Locators.PASSWORD_INPUT_ID, secrets.PASSWORD)
 
-        submit_btn = self.page.locator(Locators.LOGIN_SUBMIT_BTN_XPATH)
-        submit_btn.wait_for(state="visible")
-        submit_btn.click(delay=500.0)
+        self.page.locator(Locators.LOGIN_SUBMIT_BTN_XPATH).wait_for(
+            state="visible", timeout=settings.BROWSER_WAIT_TIMEOUT
+        )
+        click_like_human(
+            self.page, Locators.LOGIN_SUBMIT_BTN_XPATH, hold=BUTTON_HOLD_MS
+        )
 
-        self.page.wait_for_url(secrets.HOME_URL)
+        self._wait_for_login(
+            secrets.HOME_URL,
+            error_selector=Locators.LOGIN_ERROR_SELECTOR,
+            blocked_texts=BLOCKED_TEXT_FRAGMENTS,
+        )
 
     def _get_credit_transactions(self) -> None:
         """Collect current transactions on credit card"""

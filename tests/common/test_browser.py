@@ -2,9 +2,10 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+from playwright.sync_api import TimeoutError
 
 from vigilant.common import browser, options
-from vigilant.common.exceptions import DriverException
+from vigilant.common.exceptions import DriverException, FieldValueMismatch
 from vigilant.common.scripts import MOUSE_POINTER_SCRIPT
 from vigilant.common.values import settings
 
@@ -42,6 +43,7 @@ def test_session(mock_playwright: mock.MagicMock, mock_page: mock.MagicMock) -> 
         assert session == mock_page
 
     mock_playwright.chromium.launch.assert_called_once_with(
+        channel=settings.BROWSER_CHANNEL,
         headless=True,
         args=[
             "--no-sandbox",
@@ -53,6 +55,8 @@ def test_session(mock_playwright: mock.MagicMock, mock_page: mock.MagicMock) -> 
     mock_browser.new_context.assert_called_once_with(
         accept_downloads=True,
         viewport={"width": 1920, "height": 1080},
+        locale=settings.BROWSER_LOCALE,
+        timezone_id=settings.BROWSER_TIMEZONE,
         user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/123.0.0.0 Safari/537.36",
@@ -73,6 +77,7 @@ def test_session_show_window(
         assert session == mock_page
 
     mock_playwright.chromium.launch.assert_called_once_with(
+        channel=settings.BROWSER_CHANNEL,
         headless=False,
         args=[
             "--no-sandbox",
@@ -85,6 +90,8 @@ def test_session_show_window(
     mock_browser.new_context.assert_called_once_with(
         accept_downloads=True,
         viewport={"width": 1536, "height": 864},
+        locale=settings.BROWSER_LOCALE,
+        timezone_id=settings.BROWSER_TIMEZONE,
         user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/123.0.0.0 Safari/537.36",
@@ -234,3 +241,313 @@ def test_save_video(mock_storage: mock.MagicMock, mock_video: mock.MagicMock) ->
         ".webm"
     )
     assert mock_storage.save_video.call_args.args[0] == "/tmp/videos/recorded.webm"
+
+
+def test_fill_like_human(mock_page: mock.MagicMock) -> None:
+    mock_page.viewport_size = {"width": 1920, "height": 1080}
+    mock_page.locator.return_value.bounding_box.return_value = {
+        "x": 100.0,
+        "y": 200.0,
+        "width": 300.0,
+        "height": 40.0,
+    }
+    mock_page.locator.return_value.input_value.return_value = "Hesitation is defeat!"
+
+    browser.fill_like_human(mock_page, "#field", "Hesitation is defeat!")
+
+    mock_page.locator.assert_called_with("#field")
+    field: mock.MagicMock = mock_page.locator.return_value
+    field.press_sequentially.assert_called_once()
+    assert field.press_sequentially.call_args.args[0] == "Hesitation is defeat!"
+    assert 0 < field.press_sequentially.call_args.kwargs["delay"] <= 150
+    assert field.fill.call_count == 0
+    assert mock_page.mouse.move.call_count == 2
+    mock_page.mouse.down.assert_called_once()
+    mock_page.mouse.up.assert_called_once()
+
+
+def test_fill_like_human_numeric_only(mock_page: mock.MagicMock) -> None:
+    mock_page.viewport_size = {"width": 1920, "height": 1080}
+    mock_page.locator.return_value.bounding_box.return_value = {
+        "x": 100.0,
+        "y": 200.0,
+        "width": 300.0,
+        "height": 40.0,
+    }
+    mock_page.locator.return_value.input_value.return_value = "19.081.725-3"
+
+    browser.fill_like_human(mock_page, "#rut", "190817253", numeric_only=True)
+
+    mock_page.locator.return_value.press_sequentially.assert_called_once()
+
+
+def test_fill_like_human_mismatch(mock_page: mock.MagicMock) -> None:
+    mock_page.viewport_size = {"width": 1920, "height": 1080}
+    mock_page.locator.return_value.bounding_box.return_value = {
+        "x": 100.0,
+        "y": 200.0,
+        "width": 300.0,
+        "height": 40.0,
+    }
+    mock_page.locator.return_value.input_value.return_value = "19.081.725-9"
+
+    with pytest.raises(FieldValueMismatch) as mismatch:
+        browser.fill_like_human(mock_page, "#rut", "190817253", numeric_only=True)
+
+    assert "#rut" in str(mismatch.value)
+    assert "190817253" not in str(mismatch.value)
+
+
+def test_fill_like_human_mismatch_text(mock_page: mock.MagicMock) -> None:
+    mock_page.locator.return_value.bounding_box.return_value = None
+    mock_page.locator.return_value.input_value.return_value = "truncated"
+
+    with pytest.raises(FieldValueMismatch):
+        browser.fill_like_human(mock_page, "#password", "Hesitation is defeat!")
+
+
+def test_click_like_human(mock_page: mock.MagicMock) -> None:
+    mock_page.viewport_size = {"width": 1920, "height": 1080}
+    mock_page.locator.return_value.bounding_box.return_value = {
+        "x": 100.0,
+        "y": 200.0,
+        "width": 300.0,
+        "height": 40.0,
+    }
+
+    browser.click_like_human(mock_page, "#button")
+
+    mock_page.locator.assert_called_once_with("#button")
+    assert mock_page.mouse.move.call_count == 2
+    assert mock_page.mouse.move.call_args.args == (250.0, 220.0)
+    assert 8 <= mock_page.mouse.move.call_args.kwargs["steps"] <= 16
+    mock_page.mouse.down.assert_called_once()
+    mock_page.mouse.up.assert_called_once()
+    assert 60 <= mock_page.wait_for_timeout.call_args.args[0] <= 110
+    mock_page.locator.return_value.press_sequentially.assert_not_called()
+
+
+def test_click_like_human_hold(mock_page: mock.MagicMock) -> None:
+    mock_page.viewport_size = {"width": 1920, "height": 1080}
+    mock_page.locator.return_value.bounding_box.return_value = {
+        "x": 100.0,
+        "y": 200.0,
+        "width": 300.0,
+        "height": 40.0,
+    }
+
+    browser.click_like_human(mock_page, "#button", hold=500.0)
+
+    mock_page.wait_for_timeout.assert_called_with(500.0)
+
+
+def test_click_like_human_without_box(mock_page: mock.MagicMock) -> None:
+    mock_page.locator.return_value.bounding_box.return_value = None
+
+    browser.click_like_human(mock_page, "#button")
+
+    mock_page.locator.return_value.click.assert_called_once()
+    mock_page.mouse.down.assert_not_called()
+    mock_page.mouse.up.assert_not_called()
+
+
+def test_clamp() -> None:
+    assert browser._clamp(-50.0, 1920) == 0.0
+    assert browser._clamp(5000.0, 1920) == 1919.0
+    assert browser._clamp(10.0, 0) == 0.0
+
+
+def test_wait_for_outcome(mock_page: mock.MagicMock) -> None:
+    mock_page.wait_for_function.return_value.json_value.return_value = "success"
+
+    outcome: str = browser.wait_for_outcome(
+        mock_page, "https://portal.example.com/home", error_text="datos incorrectos"
+    )
+
+    assert outcome == "success"
+    assert mock_page.wait_for_function.call_args.args[0] == browser.OUTCOME_SCRIPT
+    assert mock_page.wait_for_function.call_args.kwargs["arg"] == [
+        "https://portal.example.com/home",
+        "",
+        "datos incorrectos",
+        [],
+        None,
+    ]
+    assert mock_page.wait_for_function.call_args.kwargs["timeout"] == pytest.approx(
+        settings.BROWSER_WAIT_TIMEOUT, abs=100
+    )
+    assert mock_page.wait_for_function.call_args.kwargs["polling"] == (
+        browser.POLL_INTERVAL
+    )
+
+
+def _clocked_page(
+    mock_page: mock.MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> dict[str, float]:
+    """Paces the page in wall time: `wait_for_timeout` advances a fake clock."""
+    now: dict[str, float] = {"t": 0.0}
+    monkeypatch.setattr(browser.time, "monotonic", lambda: now["t"])
+
+    def fake_wait_for_timeout(ms: float) -> None:
+        now["t"] += ms / 1000.0
+
+    mock_page.wait_for_timeout.side_effect = fake_wait_for_timeout
+    return now
+
+
+def test_wait_for_outcome_blocked(
+    mock_page: mock.MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = _clocked_page(mock_page, monkeypatch)
+    mock_page.wait_for_function.return_value.json_value.return_value = (
+        browser.OUTCOME_BLOCKED
+    )
+
+    outcome: str = browser.wait_for_outcome(
+        mock_page,
+        "https://portal.example.com/home",
+        blocked_texts=["no lo podemos atender", "try later"],
+        blocked_url="/blocked",
+    )
+
+    assert outcome == browser.OUTCOME_BLOCKED
+    assert mock_page.wait_for_function.call_args.kwargs["arg"] == [
+        "https://portal.example.com/home",
+        "",
+        "",
+        ["no lo podemos atender", "try later"],
+        "/blocked",
+    ]
+    # one primary read plus one read per poll interval, spaced across the
+    # persistence window in real time rather than instantly
+    polls = int(browser.BLOCKED_PERSISTENCE_MS / browser.POLL_INTERVAL)
+    assert mock_page.wait_for_function.call_count == 1 + polls
+    assert mock_page.wait_for_timeout.call_count == polls
+    assert now["t"] == pytest.approx(browser.BLOCKED_PERSISTENCE_MS / 1000.0)
+
+
+def test_wait_for_outcome_blocked_immediate(
+    mock_page: mock.MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _clocked_page(mock_page, monkeypatch)
+    mock_page.wait_for_function.return_value.json_value.return_value = (
+        browser.OUTCOME_BLOCKED
+    )
+
+    outcome: str = browser.wait_for_outcome(
+        mock_page,
+        "https://portal.example.com/home",
+        blocked_texts=["no lo podemos atender"],
+        blocked_persistence_ms=0,
+    )
+
+    assert outcome == browser.OUTCOME_BLOCKED
+    assert mock_page.wait_for_function.call_count == 1
+    mock_page.wait_for_timeout.assert_not_called()
+
+
+def test_wait_for_outcome_blocked_sub_poll_window(
+    mock_page: mock.MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = _clocked_page(mock_page, monkeypatch)
+    mock_page.wait_for_function.return_value.json_value.return_value = (
+        browser.OUTCOME_BLOCKED
+    )
+
+    outcome: str = browser.wait_for_outcome(
+        mock_page,
+        "https://portal.example.com/home",
+        blocked_texts=["no lo podemos atender"],
+        blocked_persistence_ms=100,
+    )
+
+    assert outcome == browser.OUTCOME_BLOCKED
+    # the sub-window window is waited out in one paced read before reporting
+    assert mock_page.wait_for_function.call_count == 2
+    assert now["t"] == pytest.approx(0.1)
+
+
+def test_wait_for_outcome_blocked_blip_resolves(
+    mock_page: mock.MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = _clocked_page(mock_page, monkeypatch)
+    blocked_handle = mock.MagicMock()
+    blocked_handle.json_value.return_value = browser.OUTCOME_BLOCKED
+    success_handle = mock.MagicMock()
+    success_handle.json_value.return_value = browser.OUTCOME_SUCCESS
+    mock_page.wait_for_function.side_effect = [blocked_handle, success_handle]
+
+    outcome: str = browser.wait_for_outcome(
+        mock_page,
+        "https://portal.example.com/home",
+        blocked_texts=["no lo podemos atender"],
+    )
+
+    assert outcome == browser.OUTCOME_SUCCESS
+    # the blip is re-read once, then the live portal wins instead of a block
+    assert now["t"] == pytest.approx(browser.POLL_INTERVAL / 1000.0)
+
+
+def test_wait_for_outcome_expired_before_poll(
+    mock_page: mock.MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: dict[str, int] = {"count": 0}
+
+    def fake_monotonic() -> float:
+        calls["count"] += 1
+        return 0.0 if calls["count"] == 1 else 60.0
+
+    monkeypatch.setattr(browser.time, "monotonic", fake_monotonic)
+
+    with pytest.raises(TimeoutError):
+        browser.wait_for_outcome(
+            mock_page, "https://portal.example.com/home", timeout=1000.0
+        )
+
+    mock_page.wait_for_function.assert_not_called()
+    blocked_handle = mock.MagicMock()
+    blocked_handle.json_value.return_value = browser.OUTCOME_BLOCKED
+    success_handle = mock.MagicMock()
+    success_handle.json_value.return_value = browser.OUTCOME_SUCCESS
+    mock_page.wait_for_function.side_effect = [blocked_handle, success_handle]
+
+    outcome: str = browser.wait_for_outcome(
+        mock_page,
+        "https://portal.example.com/home",
+        blocked_texts=["no lo podemos atender"],
+    )
+
+    assert outcome == browser.OUTCOME_SUCCESS
+
+
+def test_wait_for_outcome_blocked_clears_then_times_out(
+    mock_page: mock.MagicMock,
+) -> None:
+    blocked_handle = mock.MagicMock()
+    blocked_handle.json_value.return_value = browser.OUTCOME_BLOCKED
+    mock_page.wait_for_function.side_effect = [
+        blocked_handle,
+        TimeoutError(""),
+        TimeoutError(""),
+    ]
+
+    with pytest.raises(TimeoutError):
+        browser.wait_for_outcome(
+            mock_page,
+            "https://portal.example.com/home",
+            blocked_texts=["no lo podemos atender"],
+        )
+
+
+def test_wait_for_outcome_timeout(mock_page: mock.MagicMock) -> None:
+    mock_page.wait_for_function.side_effect = TimeoutError("")
+
+    with pytest.raises(TimeoutError):
+        browser.wait_for_outcome(
+            mock_page, "https://portal.example.com/home", timeout=1000.0
+        )
+
+    assert mock_page.wait_for_function.call_args.kwargs["timeout"] == pytest.approx(
+        1000.0, abs=100
+    )

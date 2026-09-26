@@ -21,10 +21,25 @@ class Secrets(BaseSettings):
 secrets = Secrets()
 
 
+# The anti-bot system in front of the portal answers the login submission with
+# a "try later" page when it refuses to serve the session (mostly when the
+# egress IP is a cloud range). The wording is what the page showed when the
+# block was captured in Cloud Run.
+BLOCKED_TEXT_FRAGMENTS: Final[list[str]] = [
+    "no lo podemos atender",
+    "inténtelo más tarde",
+]
+
+
 class Locators:
     USER_INPUT_ID: Final[str] = "#document"
     PASSWORD_INPUT_ID: Final[str] = "#pass"
     PRODUCT_BTN_ID: Final[str] = "#cardDetail0"
+
+    # The login drawer only renders the rejection once the server answers, so it
+    # cannot be read from the idle form. Its CSS module classes are hashed per
+    # build, which leaves the accessible role as the only stable handle.
+    LOGIN_ERROR_SELECTOR: Final[str] = "#drawer [role='alert']"
 
     PRODUCT_BTN_CLASS: Final[str] = ".div-product"
     DOWNLOAD_BTN_CLASS: Final[str] = ".btn-doc-export"

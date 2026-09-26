@@ -5,6 +5,7 @@ from unittest import mock
 
 import pandas as pd
 import pytest
+from playwright.sync_api import TimeoutError
 
 from vigilant.core.collector.scraper.banco_falabella.values import (
     secrets,
@@ -87,6 +88,40 @@ def test_get_credit_transactions(tmp_path: Path, mock_page: mock.MagicMock) -> N
 
     mock_page.locator().wait_for.assert_called_once()
     mock_page.locator().click.assert_called()
+    mock_download_info.value.save_as.assert_called_once_with(
+        tmp_path / IOResources.TRANSACTIONS_FILENAME
+    )
+
+
+def test_get_credit_transactions_closes_late_banner(
+    tmp_path: Path, mock_page: mock.MagicMock
+) -> None:
+    (tmp_path / IOResources.TRANSACTIONS_FILENAME).write_text("Hesitation is defeat!")
+
+    mock_download_info = mock.MagicMock()
+    mock_page.expect_download.return_value.__enter__.return_value = mock_download_info
+
+    mock_locator = mock_page.locator.return_value
+    click_calls: list[int] = []
+
+    def mock_click(*_args: Any, **_kwargs: Any) -> None:
+        click_calls.append(1)
+        # the promotion modal appears after the first wait expired and blocks
+        # the product button click
+        if len(click_calls) == 2:
+            raise TimeoutError("intercepts pointer events")
+
+    mock_locator.click.side_effect = mock_click
+
+    scraper = BancoFalabellaScraper(mock_page)
+    scraper.data_path = tmp_path
+
+    scraper._get_credit_transactions()
+
+    # banner dismissed on the initial wait and again after the blocked click
+    assert mock_locator.wait_for.call_count == 2
+    # two banner closes, the blocked product click and its retry
+    assert len(click_calls) == 4
     mock_download_info.value.save_as.assert_called_once_with(
         tmp_path / IOResources.TRANSACTIONS_FILENAME
     )

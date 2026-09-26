@@ -1,5 +1,8 @@
 FROM thehale/python-poetry:2.4.1-py3.12-slim AS build-deps
 
+RUN apt update -y && apt upgrade -y
+# RUN apt install -y build-essential libpq-dev
+
 RUN poetry self add poetry-plugin-export
 
 ADD . vigilant
@@ -14,9 +17,13 @@ RUN apt update -y && apt upgrade -y
 # Create app folder
 RUN mkdir -p -m 777 /var/lib/vigilant
 
-# Install Chrome Browser and Driver
-RUN pip install --no-cache-dir --upgrade playwright && \
-    playwright install chrome --with-deps
+# Install Playwright Browser and Driver
+# Keep this layer before the dependencies to reuse the cached browser
+# download when only the source code changes. PLAYWRIGHT_VERSION must match
+# the version locked in poetry.lock.
+ARG PLAYWRIGHT_VERSION=1.61.0
+RUN pip install --no-cache-dir --upgrade "playwright==${PLAYWRIGHT_VERSION}" && \
+    playwright install chromium --with-deps
 
 # Install dependencies
 COPY --from=build-deps /requirements.txt .

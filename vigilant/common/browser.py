@@ -54,7 +54,6 @@ def session() -> Generator[Page]:
         )
 
         browser: Browser = p.chromium.launch(
-            channel="chrome",
             headless=browser_options.headless,
             args=browser_args,
         )

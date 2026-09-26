@@ -1,6 +1,6 @@
 {
     "name": "vigilant",
-    "image": "mcr.microsoft.com/vscode/devcontainers/base:bullseye",
+    "image": "mcr.microsoft.com/devcontainers/base:bookworm",
 
     // Features to add to the dev container. More info: https://containers.dev/features.
     "features": {
@@ -16,7 +16,8 @@
     },
 
     "remoteEnv": {
-        "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
+        "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}",
+        "HOST_HOME": "${localEnv:HOME}"
     },
     "containerEnv": {
         "POETRY_VIRTUALENVS_IN_PROJECT": "True"
@@ -30,7 +31,7 @@
     },
 
     "postStartCommand": {
-        "browser": "poetry run playwright install chrome --with-deps"
+        "browser": "poetry run playwright install chromium --with-deps"
     },
 
 	// Configure tool-specific properties.
@@ -52,7 +53,8 @@
                 "charliermarsh.ruff",
                 "eamodio.gitlens",
                 "rid9.datetime",
-                "4ops.terraform"
+                "4ops.terraform",
+                "mrujjwalg.movi-player-vscode"
             ],
             "settings": {
                 "[python]": {

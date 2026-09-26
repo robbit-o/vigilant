@@ -42,7 +42,6 @@ def test_session(mock_playwright: mock.MagicMock, mock_page: mock.MagicMock) -> 
         assert session == mock_page
 
     mock_playwright.chromium.launch.assert_called_once_with(
-        channel="chrome",
         headless=True,
         args=[
             "--no-sandbox",
@@ -74,7 +73,6 @@ def test_session_show_window(
         assert session == mock_page
 
     mock_playwright.chromium.launch.assert_called_once_with(
-        channel="chrome",
         headless=False,
         args=[
             "--no-sandbox",

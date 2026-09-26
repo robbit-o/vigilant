@@ -51,21 +51,36 @@ class BancoFalabellaScraper(Scraper):
     def _get_credit_transactions(self) -> None:
         """Collect current transactions on credit card"""
         BANNER_WAIT_TIMEOUT: float = 3000.0
+        PRODUCT_BTN_TIMEOUT: float = 5000.0
 
         self.logger.info("Getting transactions ...")
 
-        with suppress(TimeoutError):
-            self.page.locator(Locators.PROMOTION_BANNER_XPATH).wait_for(
-                timeout=BANNER_WAIT_TIMEOUT
-            )
-            self.page.locator(Locators.CLOSE_BANNER_BTN_CLASS).click()
+        self._close_promotion_banner(BANNER_WAIT_TIMEOUT)
 
-        self.page.locator(Locators.PRODUCT_BTN_ID).click()
+        product_btn: Locator = self.page.locator(Locators.PRODUCT_BTN_ID)
+
+        try:
+            product_btn.click(timeout=PRODUCT_BTN_TIMEOUT)
+        except TimeoutError:
+            # The promotion modal is loaded asynchronously and can appear after
+            # the wait above expired, blocking the product button
+            self._close_promotion_banner(BANNER_WAIT_TIMEOUT)
+            product_btn.click()
 
         with self.page.expect_download() as download_info:
             self.page.locator(Locators.DOWNLOAD_BTN_CLASS).first.click()
 
         download_info.value.save_as(self.data_path / IOResources.TRANSACTIONS_FILENAME)
+
+    def _close_promotion_banner(self, timeout: float) -> None:
+        """Dismiss the promotion modal when it is displayed
+
+        Args:
+            timeout (float): Time to wait for the modal to be displayed
+        """
+        with suppress(TimeoutError):
+            self.page.locator(Locators.PROMOTION_BANNER_XPATH).wait_for(timeout=timeout)
+            self.page.locator(Locators.CLOSE_BANNER_BTN_CLASS).click()
 
     def export(self) -> AccountData:
         """Structure and returns collected data"""

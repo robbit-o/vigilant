@@ -10,6 +10,7 @@ from playwright.sync_api import (
 )
 
 from vigilant import logger
+from vigilant.common import options
 from vigilant.common.exceptions import DriverException
 from vigilant.common.storage import GoogleCloudStorage, LocalStorage
 from vigilant.common.values import (
@@ -28,18 +29,27 @@ storage = (
 @contextmanager
 def session() -> Generator[Page]:
     with sync_playwright() as p:
+        browser_options: options.BrowserOptions = options.current
+        browser_args: list[str] = [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+        ]
+
+        if not browser_options.headless:
+            browser_args.append(
+                f"--window-size={browser_options.width},{browser_options.height}"
+            )
+
         browser: Browser = p.chromium.launch(
             channel="chrome",
-            args=[
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-gpu",
-            ],
+            headless=browser_options.headless,
+            args=browser_args,
         )
         context: BrowserContext = browser.new_context(
             accept_downloads=True,
-            viewport={"width": 1920, "height": 1080},
+            viewport=browser_options.viewport,
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/123.0.0.0 Safari/537.36",

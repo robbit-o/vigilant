@@ -31,6 +31,22 @@ gcloud auth application-default login \
 poetry run vigilant
 ```
 
+### Command line options
+
+| Option | Description |
+| --- | --- |
+| `--show-window` | Shows the browser window instead of running headless, with a slightly reduced 16:9 size (`1536x864`) |
+| `-w`, `--width` | Browser window width in pixels, the height is derived from the 16:9 ratio when omitted |
+| `-h`, `--height` | Browser window height in pixels, the width is derived from the 16:9 ratio when omitted |
+| `-s`, `--scrapers` | Enabled scrapers, overrides the `ENABLED_SCRAPERS` environment variable |
+
+Enabled scrapers are repeated or comma separated options:
+
+```shell
+poetry run vigilant -s BancoChile -s BancoFalabella
+poetry run vigilant -s BancoChile,BancoFalabella --show-window -w 1280
+```
+
 ## Start service locally
 
 ```shell

@@ -27,3 +27,16 @@ def test_get_enabled_scrapers(
     enabled_scrapers = collector.get_enabled_scrapers()
 
     assert enabled_scrapers == {"MockScraper": mock_scraper}
+
+
+def test_get_enabled_scrapers_ignores_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_scraper: Type[Scraper],
+) -> None:
+    monkeypatch.setattr(
+        "vigilant.common.values.collector.ENABLED_SCRAPERS", ["MockScraper", "Unknown"]
+    )
+
+    collector.SCRAPER_REGISTRY = {"MockScraper": mock_scraper}
+
+    assert collector.get_enabled_scrapers() == {"MockScraper": mock_scraper}

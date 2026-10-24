@@ -32,4 +32,8 @@ RUN pip install --no-cache-dir --upgrade -r requirements.txt
 # Copy app source code
 ADD vigilant /vigilant
 
+# Secrets bootstrap used only when the container entrypoint is overridden in
+# docker-compose. Inert in the production image (Cloud Run injects secrets).
+COPY scripts/infisical_bootstrap.py /usr/local/bin/infisical_bootstrap.py
+
 CMD ["uvicorn", "vigilant.app:app", "--host", "0.0.0.0", "--port", "8080"]

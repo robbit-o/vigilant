@@ -1,0 +1,5 @@
+# Encrypted with the age identity at ~/.config/sops/age/keys.txt.
+# The private key never leaves the host; without it secrets.enc.env is unreadable.
+creation_rules:
+  - path_regex: secrets\.enc\.env$
+    age: age153fdayllvted2y72ezeh3n6n98t267tu5j53j6n5lkhutxcdxyjsg3ctgy

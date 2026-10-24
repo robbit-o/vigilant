@@ -1,2 +1,14 @@
 **/__pycache__
 **/*.py[cod]
+
+.git
+screenshots
+terraform
+secrets/
+client-id.json
+.devcontainer
+.vscode
+.venv
+.coverage
+.pytest_cache
+.ruff_cache

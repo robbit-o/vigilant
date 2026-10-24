@@ -20,7 +20,8 @@
 
 ```shell
 gcloud auth application-default login \
-    --client-id-file credentials.json \
+    --impersonate-service-account="docker-compose-local@${GCLOUD_PROJECT}.iam.gserviceaccount.com" \
+    --client-id-file client-id.json \
     --billing-project ${GCLOUD_PROJECT} \
     --scopes https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/spreadsheets,https://www.googleapis.com/auth/drive
 ```
@@ -63,8 +64,21 @@ poetry run uvicorn vigilant.app:app --host 0.0.0.0 --port 8080 --reload
 ## Start service in container with local changes
 
 ```shell
-docker compose up --watch
+./scripts/init-sops.sh   # first time only
+sops secrets.enc.env     # first time only: fill INFISICAL_* bootstrap secrets
+gcloud auth application-default login \
+    --impersonate-service-account="docker-compose-local@${GCLOUD_PROJECT}.iam.gserviceaccount.com" \
+    --client-id-file client-id.json \
+    --billing-project ${GCLOUD_PROJECT} \
+    --scopes https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/spreadsheets,https://www.googleapis.com/auth/drive
+
+./scripts/dev.sh up --watch
 ```
 
-***Note:** I'm using a volume created by gcloud-cli-persistence to store my
-gcloud credentials, check where your's are stored and update them the compose file.*
+`dev.sh` decrypts `secrets.enc.env` (SOPS + age) into the compose process and
+runs it; the robot fetches its credentials from the local Infisical instance at
+startup. All manual steps (first-time Infisical setup, rotations, Postgres
+volume) are documented in [docs/OPERATIONS.md](docs/OPERATIONS.md).
+
+***Note:** I'm mounting `~/.config/gcloud` for gcloud credentials; set
+`GCLOUD_PROJECT` in `.env` and check the mount path in the compose file.*

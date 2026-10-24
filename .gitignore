@@ -181,3 +181,8 @@ screenshots
 
 # GCloud Credentials
 credentials.json
+client-id.json
+
+# Infisical
+secrets/
+secrets/infisical_token

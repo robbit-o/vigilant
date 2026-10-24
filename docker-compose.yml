@@ -1,15 +1,92 @@
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: infisical_db
+    environment:
+      POSTGRES_DB: infisical
+      POSTGRES_USER: infisical
+      POSTGRES_PASSWORD: ${INFISICAL_DB_PASSWORD:?set INFISICAL_DB_PASSWORD in secrets.enc.env or .env}
+    volumes:
+      - infisical_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U infisical"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  infisical:
+    image: infisical/infisical:latest
+    container_name: infisical
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+      - SITE_URL=http://localhost:8081
+      - ENCRYPTION_KEY=${INFISICAL_ENCRYPTION_KEY:?set INFISICAL_ENCRYPTION_KEY}
+      - AUTH_SECRET=${INFISICAL_AUTH_SECRET:?set INFISICAL_AUTH_SECRET}
+      - DB_CONNECTION_URI=postgresql://infisical:${INFISICAL_DB_PASSWORD}@db:5432/infisical
+      - REDIS_URL=${INFISICAL_REDIS_URL:-redis://redis:6379}
+    ports:
+      - "8081:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: infisical_redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  secrets-sync:
+    build: ./secrets-sync
+    container_name: infisical_secrets_sync
+    depends_on:
+      infisical:
+        condition: service_healthy
+    environment:
+      - GSM_PROJECT_ID=${GCLOUD_PROJECT}
+      - INFISICAL_BASE_URL=http://infisical:8080
+      - INFISICAL_PROJECT_ID=${INFISICAL_PROJECT_ID:?set INFISICAL_PROJECT_ID}
+      - INFISICAL_ENV=${INFISICAL_ENV:-dev}
+      - INFISICAL_TOKEN=${INFISICAL_TOKEN:?set INFISICAL_TOKEN}
+      - REQUIRED_SECRETS=CHILE_USERNAME,CHILE_PASSWORD,CHILE_LOGIN_URL,CHILE_HOME_URL,CHILE_CREDIT_TRANSACTIONS_URL,FALABELLA_USERNAME,FALABELLA_PASSWORD,FALABELLA_LOGIN_URL,FALABELLA_HOME_URL
+      - GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json
+    volumes:
+      - ~/.config/gcloud:/root/.config/gcloud:ro
+    restart: "no"
+
   robot:
     build: .
     cpus: 1
     mem_limit: 2GB
     ports:
       - "8080:8080"
-    volumes:
-      - ${LOCAL_WORKSPACE_FOLDER}/screenshots:/screenshots
-      - gcloud_credentials:/root/.config/gcloud
+    depends_on:
+      secrets-sync:
+        condition: service_completed_successfully
+    environment:
+      - INFISICAL_BASE_URL=http://infisical:8080
+      - INFISICAL_PROJECT_ID=${INFISICAL_PROJECT_ID:?set INFISICAL_PROJECT_ID}
+      - INFISICAL_ENV=${INFISICAL_ENV:-dev}
+      - INFISICAL_TOKEN=${INFISICAL_TOKEN:?set INFISICAL_TOKEN}
     env_file:
       - ./.env
+    entrypoint: ["python3", "/usr/local/bin/infisical_bootstrap.py"]
+    command: ["uvicorn", "vigilant.app:app", "--host", "0.0.0.0", "--port", "8080"]
+    volumes:
+      - /tmp/screenshots:/screenshots
+      - ~/.config/gcloud:/root/.config/gcloud
     develop:
       watch:
         - action: sync+restart
@@ -24,6 +101,6 @@ services:
           path: ./poetry.lock
 
 volumes:
-  gcloud_credentials:
-    name: ${GCLOUD_CREDS_VOLUME}
+  infisical_db_data:
+    name: vigilant_infisical_db_data
     external: true
